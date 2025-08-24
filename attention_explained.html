@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Attention Mechanisms — Interactive Visualization</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #0f172a;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --accent: #22d3ee;
+      --accent-2: #a78bfa;
+      --ok: #34d399;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --chip: #1f2937;
+      --grid: #1b2540;
+      --grid-strong: #2a355a;
+      --shadow: 0 10px 30px rgba(0,0,0,0.3);
+      --radius: 14px;
+      --cell: 28px;       /* matrix cell size */
+      --gap: 3px;         /* grid gap for cells and axes */
+      --axis-bg: #0d1b36;
+      --axis-border: #1f2a4a;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: radial-gradient(1200px 800px at 10% -10%, #13214b 0%, transparent 60%),
+                  radial-gradient(1200px 800px at 110% 10%, #2a1a5a 0%, transparent 60%),
+                  var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      line-height: 1.45;
+    }
+
+    .app {
+      max-width: 1600px;
+      margin: 20px auto 80px;
+      padding: 0 20px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 20px;
+      align-items: end;
+      margin-bottom: 24px;
+      padding: 0 4px;
+    }
+    .title {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin: 0 0 6px 0;
+      background: linear-gradient(135deg, #e5e7eb 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .subtitle { 
+      color: var(--muted); 
+      margin: 0; 
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .btn {
+      border: 1px solid #334155;
+      background: linear-gradient(180deg, #1e293b, #0f172a);
+      color: var(--text);
+      padding: 12px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      font-weight: 600;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+    .btn:hover { 
+      border-color: #475569; 
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+    }
+    .btn:active { transform: translateY(0px); }
+    .btn.primary { 
+      border-color: #2563eb; 
+      background: linear-gradient(180deg, #3b82f6, #1e40af);
+      color: white;
+    }
+    .btn.primary:hover {
+      background: linear-gradient(180deg, #2563eb, #1d4ed8);
+    }
+    .btn.ghost { 
+      background: rgba(15, 23, 42, 0.5); 
+      border-color: #475569;
+      box-shadow: none; 
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 20px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border: 1px solid #203056;
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .panel h3 {
+      margin: 0 0 16px;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #e2e8f0;
+    }
+
+    .stepper { display: grid; gap: 12px; }
+    .step {
+      display: grid;
+      grid-template-columns: 32px 1fr auto;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid #23325b;
+      background: linear-gradient(180deg, #0f1629, #0a1220);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .step:hover { 
+      border-color: #34518c; 
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .step.active { 
+      border-color: var(--accent); 
+      background: linear-gradient(180deg, #0c223d, #081a2e);
+      box-shadow: 0 0 0 1px rgba(34,211,238,0.2);
+    }
+    .step .num {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: linear-gradient(135deg, #1e3a8a, #172554);
+      color: #a5b4fc; font-weight: 700; font-size: 13px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .step.active .num {
+      background: linear-gradient(135deg, var(--accent), #0891b2);
+      color: #0b1020;
+    }
+    .step .title { font-weight: 700; font-size: 14px; }
+    .step .badge { font-size: 11px; color: var(--muted); opacity: 0.8; }
+
+    .main {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    .explain { 
+      color: var(--muted); 
+      font-size: 15px; 
+      line-height: 1.6;
+    }
+    .chips { 
+      display: flex; 
+      flex-wrap: wrap; 
+      gap: 10px; 
+      margin-top: 12px; 
+    }
+    .chip {
+      padding: 8px 14px; 
+      border-radius: 20px;
+      border: 1px solid #2a3d6d; 
+      background: linear-gradient(135deg, #0b1b3a, #0a1628);
+      color: #c7d2fe; 
+      font-weight: 600; 
+      font-size: 13px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+
+    .matrix { overflow: auto; }
+    .matrix .label-row {
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between;
+      margin-bottom: 12px; 
+      padding-bottom: 8px;
+      border-bottom: 1px solid #1f2a4a;
+    }
+    .matrix .label-row > div:first-child {
+      color: #e2e8f0; 
+      font-weight: 700; 
+      font-size: 16px;
+    }
+    .matrix .sub { 
+      color: var(--muted); 
+      font-weight: 500; 
+      font-size: 12px; 
+      opacity: 0.8;
+    }
+    .matrix .table {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      align-items: start;
+      gap: 12px;
+    }
+    .axis-col, .axis-row { color: #cbd5e1; font-size: 12px; }
+    .axis-col {
+      display: grid;
+      grid-template-columns: repeat(var(--cols), var(--cell));
+      gap: var(--gap);
+      justify-content: start;
+      overflow-x: auto;
+    }
+    .axis-row {
+      display: grid;
+      grid-auto-rows: var(--cell);
+      grid-template-columns: 1fr;
+      gap: var(--gap);
+      justify-content: start;
+    }
+    .axis-item {
+      display: grid;
+      place-items: center;
+      background: var(--axis-bg);
+      border: 1px solid var(--axis-border);
+      border-radius: 6px;
+      padding: 0 8px;
+      height: var(--cell);
+      white-space: nowrap;
+      font-weight: 600;
+      font-size: 12px;
+      color: #cbd5e1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .axis-row .axis-item {
+      width: 100%;
+      justify-content: flex-start;
+      padding: 0 12px;
+      text-align: left;
+    }
+    .axis-col .axis-item {
+      width: var(--cell);
+    }
+    .cells {
+      display: grid; gap: var(--gap);
+      grid-template-columns: repeat(var(--cols), var(--cell));
+      grid-auto-rows: var(--cell);
+      background: var(--grid);
+      padding: 8px; 
+      border-radius: 12px; 
+      border: 1px solid #1f2a4a;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .cell {
+      position: relative;
+      display: grid; place-items: center;
+      border-radius: 4px;
+      color: #0b1020; 
+      font-size: 10px; 
+      font-weight: 700;
+      transition: all 0.15s ease;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .cell:hover { 
+      transform: translateY(-2px); 
+      box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+      border-color: rgba(255,255,255,0.2);
+      z-index: 10;
+    }
+    .cell .val { 
+      position: relative; 
+      z-index: 1; 
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; 
+    }
+    .cell .tooltip {
+      position: absolute; 
+      bottom: 110%; 
+      left: 50%; 
+      transform: translateX(-50%);
+      background: #0b1020; 
+      color: var(--text); 
+      padding: 8px 10px; 
+      border-radius: 8px;
+      border: 1px solid #2a3d6d; 
+      white-space: nowrap; 
+      pointer-events: none; 
+      opacity: 0;
+      transition: opacity 0.2s ease; 
+      font-size: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .cell:hover .tooltip { opacity: 1; }
+    .cell.highlight { 
+      outline: 2px solid var(--accent); 
+      outline-offset: -1px;
+      box-shadow: 0 0 0 1px rgba(34,211,238,0.3);
+    }
+
+    .toolbar { 
+      display: flex; 
+      gap: 16px; 
+      align-items: center; 
+      flex-wrap: wrap; 
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .select, .range {
+      background: linear-gradient(180deg, #0f1629, #0a1220);
+      color: var(--text);
+      border: 1px solid #23325b; 
+      border-radius: 10px; 
+      padding: 10px 12px;
+      font-weight: 500;
+      transition: border-color 0.2s ease;
+    }
+    .select:focus, .range:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .kbd { 
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; 
+      background: #0b1b3a; 
+      padding: 4px 8px; 
+      border-radius: 6px; 
+      border: 1px solid #203056; 
+      color: #93c5fd;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .hint { 
+      color: var(--muted); 
+      font-size: 13px; 
+      opacity: 0.9;
+    }
+
+    @media (max-width: 1024px) {
+      .layout { grid-template-columns: 1fr; }
+      .app { padding: 0 16px; }
+      .hero { gap: 16px; margin-bottom: 20px; }
+      .controls { gap: 8px; }
+      .btn { padding: 10px 14px; font-size: 13px; }
+      .grid { grid-template-columns: 1fr; }
+    }
+    
+    @media (max-width: 640px) {
+      .hero { grid-template-columns: 1fr; gap: 16px; }
+      .title { font-size: 28px; }
+      .controls { justify-content: center; }
+      .toolbar { flex-direction: column; align-items: stretch; gap: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="hero">
+      <div>
+        <h1 class="title">Attention Mechanisms — Interactive Visualization</h1>
+        <p class="subtitle">Explore different attention patterns: Full Self-Attention, Sliding Window, Dilated, and Global+Sliding Window.</p>
+      </div>
+      <div class="controls">
+        <button id="btn-back" class="btn">◀ Back</button>
+        <button id="btn-next" class="btn primary">Next ▶</button>
+        <button id="btn-play" class="btn ghost">▶ Play</button>
+        <button id="btn-reset" class="btn ghost">⟲ Reset</button>
+      </div>
+    </div>
+
+    <div class="layout">
+      <aside class="panel">
+        <h3>Steps</h3>
+        <div id="stepper" class="stepper"></div>
+      </aside>
+
+      <main class="main">
+        <section class="panel">
+          <div class="toolbar">
+            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <strong style="color: #e2e8f0;">Attention Type:</strong>
+                <select id="attention-type-select" class="select"></select>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <strong style="color: #e2e8f0;">Query token:</strong>
+                <select id="query-select" class="select"></select>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <strong style="color: #e2e8f0;">Window size:</strong>
+                <select id="window-size-select" class="select"></select>
+              </div>
+              <div id="heads-selector" style="display: flex; align-items: center; gap: 8px;">
+                <strong style="color: #e2e8f0;">Heads:</strong>
+                <select id="num-heads-select" class="select"></select>
+              </div>
+            </div>
+            <div class="hint">Tip: Use arrow keys <span class="kbd">←</span>/<span class="kbd">→</span> to step</div>
+          </div>
+          <div id="explain" class="explain"></div>
+          <div id="viz" style="margin-top: 16px; display: grid; gap: 16px;"></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // ---------- Data (expanded example) ----------
+    const tokens = ["[CLS]", "The", "lazy", "dog", "wore", "sunglasses,", "stole", "my", "sandwich,", "barked", "at", "the", "fridge,", "then", "blamed", "the", "confused", "cat", "for", "everything", "suspiciously."];
+    const dModel = 8, dK = 8, dV = 8;
+    
+    // Attention types
+    const attentionTypes = [
+      { id: 'full', name: 'Full Self-Attention', desc: 'Each token can attend to all other tokens in the sequence.' },
+      { id: 'sliding', name: 'Sliding Window', desc: 'Each token can only attend to tokens within a fixed window around it.' },
+      { id: 'dilated', name: 'Dilated Sliding Window', desc: 'Like sliding window but with gaps (dilation) to see farther tokens.' },
+      { id: 'global_sliding', name: 'Global + Sliding Window', desc: 'Combines global tokens (like [CLS]) with local sliding window attention.' },
+      { id: 'multi_head', name: 'Multi-Head Attention', desc: 'Multiple attention heads run in parallel, each learning different types of relationships.' }
+    ];
+
+    const E = [
+      [ 0.10, 0.00, 0.10, 0.00, 0.05, 0.15, 0.20, 0.25], // [CLS]
+      [ 0.00, 1.00, 0.50, 0.20, 0.30, 0.10, 0.40, 0.35], // The
+      [ 0.70, 0.30, 0.40, 0.90, 0.25, 0.75, 0.15, 0.60], // lazy
+      [ 0.50, 0.80, 0.60, 0.40, 0.95, 0.20, 0.85, 0.45], // dog
+      [ 0.30, 0.70, 0.20, 0.80, 0.45, 0.60, 0.55, 0.35], // wore
+      [ 0.80, 0.20, 0.60, 0.40, 0.70, 0.25, 0.90, 0.50], // sunglasses,
+      [ 0.40, 0.90, 0.30, 0.70, 0.55, 0.80, 0.25, 0.65], // stole
+      [ 0.60, 0.40, 0.90, 0.10, 0.85, 0.35, 0.75, 0.20], // my
+      [ 0.20, 0.60, 0.80, 0.50, 0.65, 0.45, 0.35, 0.85], // sandwich,
+      [ 0.90, 0.10, 0.70, 0.30, 0.50, 0.80, 0.60, 0.40], // barked
+      [ 0.15, 0.85, 0.25, 0.75, 0.35, 0.65, 0.45, 0.55], // at
+      [ 0.75, 0.25, 0.85, 0.15, 0.95, 0.05, 0.80, 0.30], // the
+      [ 0.35, 0.65, 0.45, 0.55, 0.25, 0.75, 0.15, 0.85], // fridge,
+      [ 0.55, 0.45, 0.75, 0.25, 0.85, 0.15, 0.95, 0.05], // then
+      [ 0.25, 0.75, 0.35, 0.65, 0.45, 0.55, 0.05, 0.95], // blamed
+      [ 0.65, 0.35, 0.95, 0.05, 0.75, 0.25, 0.85, 0.15], // the
+      [ 0.45, 0.55, 0.15, 0.85, 0.05, 0.95, 0.25, 0.75], // confused
+      [ 0.85, 0.15, 0.55, 0.45, 0.35, 0.65, 0.95, 0.05], // cat
+      [ 0.05, 0.95, 0.35, 0.65, 0.15, 0.85, 0.45, 0.55], // for
+      [ 0.95, 0.05, 0.85, 0.15, 0.75, 0.25, 0.65, 0.35], // everything
+      [ 0.25, 0.75, 0.05, 0.95, 0.55, 0.45, 0.35, 0.65], // suspiciously.
+    ];
+
+    const WQ = [
+      [ 0.50,  0.10,  0.00, -0.20,  0.30,  0.15, -0.25,  0.40],
+      [-0.30,  0.40,  0.20,  0.10, -0.25,  0.35,  0.45, -0.15],
+      [ 0.60, -0.50,  0.30,  0.20,  0.45, -0.15,  0.35,  0.25],
+      [ 0.00,  0.20,  0.50, -0.30,  0.25,  0.40, -0.35,  0.55],
+      [ 0.35, -0.25,  0.15,  0.45, -0.35,  0.20,  0.50, -0.40],
+      [-0.15,  0.55, -0.40,  0.25,  0.50, -0.30,  0.20,  0.35],
+      [ 0.25, -0.35,  0.45,  0.15, -0.20,  0.60,  0.10, -0.50],
+      [-0.40,  0.30, -0.10,  0.55,  0.35, -0.45,  0.25,  0.20],
+    ];
+    const WK = [
+      [ 0.40, -0.10,  0.20,  0.00,  0.25, -0.35,  0.50,  0.15],
+      [ 0.10,  0.60, -0.40,  0.30, -0.20,  0.45, -0.25,  0.35],
+      [-0.20,  0.30,  0.50,  0.10,  0.40, -0.25,  0.15,  0.55],
+      [ 0.30,  0.00,  0.20,  0.40, -0.15,  0.35, -0.45,  0.25],
+      [-0.35,  0.45, -0.25,  0.35,  0.30, -0.40,  0.20,  0.50],
+      [ 0.25, -0.30,  0.40, -0.20,  0.50,  0.15, -0.35,  0.45],
+      [ 0.15, -0.45,  0.35,  0.25, -0.30,  0.55,  0.40, -0.20],
+      [-0.50,  0.20, -0.35,  0.45,  0.10, -0.25,  0.60,  0.30],
+    ];
+    const WV = [
+      [ 0.20,  0.10, -0.20,  0.30,  0.40, -0.25,  0.35,  0.50],
+      [ 0.50, -0.30,  0.40,  0.10, -0.35,  0.45, -0.20,  0.25],
+      [-0.10,  0.20,  0.60, -0.20,  0.25,  0.30,  0.45, -0.35],
+      [ 0.00,  0.40, -0.10,  0.50, -0.45,  0.20,  0.30,  0.15],
+      [ 0.35, -0.25,  0.30,  0.15,  0.40, -0.35,  0.50, -0.45],
+      [-0.40,  0.35, -0.30,  0.45,  0.20,  0.50, -0.15,  0.25],
+      [ 0.30, -0.45,  0.25,  0.35, -0.20,  0.40,  0.55, -0.30],
+      [-0.25,  0.50, -0.35,  0.20,  0.45, -0.40,  0.15,  0.60],
+    ];
+
+    // ---------- Math helpers ----------
+    function matMul(a, b) {
+      const m = a.length, n = a[0].length, p = b[0].length;
+      const out = Array.from({ length: m }, () => Array(p).fill(0));
+      for (let i = 0; i < m; i++) {
+        for (let k = 0; k < n; k++) {
+          const aik = a[i][k];
+          for (let j = 0; j < p; j++) out[i][j] += aik * b[k][j];
+        }
+      }
+      return out;
+    }
+    function transpose(a) {
+      const m = a.length, n = a[0].length;
+      const out = Array.from({ length: n }, () => Array(m).fill(0));
+      for (let i = 0; i < m; i++) for (let j = 0; j < n; j++) out[j][i] = a[i][j];
+      return out;
+    }
+    function scale(a, s) { return a.map(row => row.map(v => v * s)); }
+    function rowSoftmax(a) {
+      return a.map(row => {
+        const max = Math.max(...row);
+        const exps = row.map(v => Math.exp(v - max));
+        const sum = exps.reduce((acc, v) => acc + v, 0);
+        return exps.map(v => v / sum);
+      });
+    }
+
+    // Attention masking functions
+    function createAttentionMask(type, seqLen, windowSize = 3, dilation = 2) {
+      const mask = Array.from({ length: seqLen }, () => Array(seqLen).fill(false));
+      
+      for (let i = 0; i < seqLen; i++) {
+        for (let j = 0; j < seqLen; j++) {
+          switch (type) {
+            case 'full':
+              mask[i][j] = true;
+              break;
+            case 'sliding':
+              mask[i][j] = Math.abs(i - j) <= windowSize;
+              break;
+            case 'dilated':
+              const distance = Math.abs(i - j);
+              mask[i][j] = distance <= windowSize || (distance % dilation === 0 && distance <= windowSize * 3);
+              break;
+            case 'global_sliding':
+              // Global tokens (like [CLS] at position 0) can attend to all
+              // All tokens can attend to global tokens
+              // Regular tokens use sliding window
+              mask[i][j] = (i === 0 || j === 0) || Math.abs(i - j) <= windowSize;
+              break;
+          }
+        }
+      }
+      return mask;
+    }
+
+    function applyMask(scores, mask) {
+      const masked = scores.map(row => [...row]);
+      for (let i = 0; i < scores.length; i++) {
+        for (let j = 0; j < scores[i].length; j++) {
+          if (!mask[i][j]) {
+            masked[i][j] = -Infinity; // Will become 0 after softmax
+          }
+        }
+      }
+      return masked;
+    }
+
+    // Precompute base matrices
+    const Q = matMul(E, WQ);
+    const K = matMul(E, WK);
+    const V = matMul(E, WV);
+    const baseScores = matMul(Q, transpose(K));
+    const baseScaled = scale(baseScores, 1 / Math.sqrt(dK));
+
+    // Multi-head attention functions
+    function splitHeads(matrix, numHeads, headDim) {
+      const seqLen = matrix.length;
+      const heads = [];
+      for (let h = 0; h < numHeads; h++) {
+        const head = [];
+        for (let i = 0; i < seqLen; i++) {
+          const headRow = [];
+          for (let j = 0; j < headDim; j++) {
+            headRow.push(matrix[i][h * headDim + j]);
+          }
+          head.push(headRow);
+        }
+        heads.push(head);
+      }
+      return heads;
+    }
+
+    function combineHeads(heads) {
+      const numHeads = heads.length;
+      const seqLen = heads[0].length;
+      const headDim = heads[0][0].length;
+      const combined = [];
+      
+      for (let i = 0; i < seqLen; i++) {
+        const row = [];
+        for (let h = 0; h < numHeads; h++) {
+          for (let j = 0; j < headDim; j++) {
+            row.push(heads[h][i][j]);
+          }
+        }
+        combined.push(row);
+      }
+      return combined;
+    }
+
+    function computeMultiHeadAttention(attentionType, windowSize, numHeads) {
+      const headDim = dK / numHeads;
+      
+      // Split Q, K, V into heads
+      const Q_heads = splitHeads(Q, numHeads, headDim);
+      const K_heads = splitHeads(K, numHeads, headDim);
+      const V_heads = splitHeads(V, numHeads, headDim);
+      
+      const headOutputs = [];
+      const headWeights = [];
+      const headScores = [];
+      
+      // Compute attention for each head
+      for (let h = 0; h < numHeads; h++) {
+        const scores_h = matMul(Q_heads[h], transpose(K_heads[h]));
+        const scaled_h = scale(scores_h, 1 / Math.sqrt(headDim));
+        
+        const mask = createAttentionMask(attentionType, tokens.length, windowSize);
+        const maskedScaled_h = applyMask(scaled_h, mask);
+        const weights_h = rowSoftmax(maskedScaled_h);
+        const output_h = matMul(weights_h, V_heads[h]);
+        
+        headScores.push(scores_h);
+        headWeights.push(weights_h);
+        headOutputs.push(output_h);
+      }
+      
+      // Combine heads
+      const combinedOutput = combineHeads(headOutputs);
+      
+      return { 
+        headOutputs, 
+        headWeights, 
+        headScores, 
+        combinedOutput,
+        Q_heads,
+        K_heads,
+        V_heads,
+        mask: createAttentionMask(attentionType, tokens.length, windowSize)
+      };
+    }
+
+    // These will be computed dynamically based on attention type
+    function computeAttention(attentionType, windowSize) {
+      if (attentionType === 'multi_head') {
+        return computeMultiHeadAttention('full', windowSize, state.numHeads);
+      }
+      
+      const mask = createAttentionMask(attentionType, tokens.length, windowSize);
+      const maskedScores = applyMask(baseScaled, mask);
+      const weights = rowSoftmax(maskedScores);
+      const output = matMul(weights, V);
+      return { scores: baseScores, scaled: baseScaled, maskedScaled: maskedScores, weights, output, mask };
+    }
+
+    // ---------- Color helpers ----------
+    function hexToRgb(hex) {
+      const res = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return res ? [parseInt(res[1], 16), parseInt(res[2], 16), parseInt(res[3], 16)] : [255,255,255];
+    }
+    function rgbToHex(r, g, b) {
+      return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+    }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function lerpColor(c1, c2, t) {
+      const [r1,g1,b1] = hexToRgb(c1);
+      const [r2,g2,b2] = hexToRgb(c2);
+      return rgbToHex(Math.round(lerp(r1,r2,t)), Math.round(lerp(g1,g2,t)), Math.round(lerp(b1,b2,t)));
+    }
+    function divergingColor(v, min, max) {
+      // map v in [min, max] with center at 0 to red-white-blue
+      const maxAbs = Math.max(Math.abs(min), Math.abs(max), 1e-6);
+      const t = Math.max(-1, Math.min(1, v / maxAbs)); // -1..1
+      return t < 0 ? lerpColor('#ffffff', '#d73027', -t) : lerpColor('#ffffff', '#4575b4', t);
+    }
+    function sequentialColor(v, min, max) {
+      const span = (max - min) || 1e-6; const t = Math.max(0, Math.min(1, (v - min) / span));
+      return lerpColor('#ffffff', '#3b82f6', t);
+    }
+
+    // ---------- UI Rendering ----------
+    const stepDefs = [
+      { id: 'tokens', title: 'Tokens & Embeddings', desc: 'We start with tokens and look up/compute their embeddings (vectors). Each token becomes a row in the embedding matrix E.' },
+      { id: 'projections', title: 'Linear Projections Q, K, V', desc: 'We multiply embeddings by learned weight matrices to get Queries (Q), Keys (K), and Values (V). These are just linear transformations.' },
+      { id: 'scores', title: 'Similarity Scores QK^T', desc: 'For every query (row in Q), compute dot products with all keys (columns of K^T). This yields raw attention scores (how much each token looks at others).' },
+      { id: 'scale', title: 'Scale by 1/sqrt(d_k)', desc: 'To keep values numerically stable, we scale the scores by 1/√d_k. This prevents extremely peaked softmax for larger dimensions.' },
+      { id: 'softmax', title: 'Softmax → Attention Weights', desc: 'Apply softmax row-wise to turn scores into probabilities that sum to 1. This tells how strongly each token attends to others.' },
+      { id: 'output', title: 'Weighted Sum of V', desc: 'Finally, multiply the attention weights by V to get the output vectors. Each output is a blend of value vectors, weighted by attention.' },
+    ];
+
+    let state = { 
+      stepIdx: 0, 
+      queryIdx: 0, 
+      playing: false, 
+      timer: null,
+      attentionType: 'full',
+      windowSize: 3,
+      numHeads: 4,
+      headDim: 2  // dK / numHeads = 8 / 4 = 2
+    };
+
+    function byId(id) { return document.getElementById(id); }
+
+    function renderStepper() {
+      const el = byId('stepper');
+      el.innerHTML = '';
+      stepDefs.forEach((s, i) => {
+        const div = document.createElement('div');
+        div.className = 'step' + (state.stepIdx === i ? ' active' : '');
+        div.innerHTML = `<div class="num">${i+1}</div><div class="title">${s.title}</div><div class="badge">${s.id}</div>`;
+        div.onclick = () => { state.stepIdx = i; update(); };
+        el.appendChild(div);
+      });
+    }
+
+    function renderExplain() {
+      const s = stepDefs[state.stepIdx];
+      byId('explain').innerHTML = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;"><span class="kbd">Step ${state.stepIdx+1}/${stepDefs.length}</span><strong style="font-size:15px;">${s.title}</strong></div><div>${s.desc}</div>`;
+    }
+
+    function fmt(n) { return Math.abs(n) < 1e-6 ? '0.00' : n.toFixed(2); }
+
+    function buildAxis(labels, horizontal) {
+      const axis = document.createElement('div');
+      axis.className = horizontal ? 'axis-col' : 'axis-row';
+      labels.forEach(l => {
+        const s = document.createElement('div');
+        s.className = 'axis-item';
+        s.textContent = l;
+        axis.appendChild(s);
+      });
+      return axis;
+    }
+
+    function renderMatrix({ title, sub, data, rowLabels, colLabels, diverging = false, highlightRow = null, mask = null }) {
+      const panel = document.createElement('div');
+      panel.className = 'panel matrix';
+
+      const label = document.createElement('div');
+      label.className = 'label-row';
+      label.innerHTML = `<div>${title} <span class="sub">${sub || ''}</span></div><div class="sub">${data.length}×${data[0].length}</div>`;
+      panel.appendChild(label);
+
+      const table = document.createElement('div');
+      table.className = 'table';
+
+      const corner = document.createElement('div');
+      corner.style.width = '120px';
+      corner.style.height = 'var(--cell)';
+      table.appendChild(corner);
+      const axisCols = buildAxis(colLabels, true);
+      axisCols.style.setProperty('--cols', data[0].length);
+      table.appendChild(axisCols);
+      const axisRows = buildAxis(rowLabels, false);
+      table.appendChild(axisRows);
+
+      const cells = document.createElement('div');
+      const rows = data.length, cols = data[0].length;
+      cells.className = 'cells';
+      cells.style.setProperty('--cols', cols);
+
+      let min = Infinity, max = -Infinity;
+      data.forEach(r => r.forEach(v => { if (v < min) min = v; if (v > max) max = v; }));
+
+      for (let i = 0; i < rows; i++) {
+        for (let j = 0; j < cols; j++) {
+          const v = data[i][j];
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          
+          // Check if this cell is masked
+          const isMasked = mask && !mask[i][j];
+          
+          if (isMasked) {
+            cell.style.background = '#1a1a1a';
+            cell.style.opacity = '0.3';
+            cell.innerHTML = `<div class="val" style="color: #666;">×</div><div class="tooltip">Masked (no attention)</div>`;
+          } else {
+            const color = diverging ? divergingColor(v, min, max) : sequentialColor(v, Math.min(0, min), Math.max(0.0001, max));
+            cell.style.background = color;
+            cell.innerHTML = `<div class="val">${fmt(v)}</div><div class="tooltip">row ${i}, col ${j} → ${fmt(v)}</div>`;
+          }
+          
+          cells.appendChild(cell);
+        }
+      }
+
+      if (highlightRow != null) {
+        const start = highlightRow * cols;
+        const end = start + cols;
+        const rowEls = Array.from({ length: end - start }, (_, k) => cells.children[start + k]);
+        rowEls.forEach(el => el.classList.add('highlight'));
+      }
+
+      table.appendChild(cells);
+      panel.appendChild(table);
+      return panel;
+    }
+
+    function renderTokens() {
+      const wrap = document.createElement('div');
+      const label = document.createElement('div');
+      label.innerHTML = '<strong>Tokens</strong>';
+      const chips = document.createElement('div'); chips.className = 'chips';
+      tokens.forEach((t, i) => {
+        const c = document.createElement('div');
+        c.className = 'chip';
+        c.textContent = `${i}: ${t}`;
+        chips.appendChild(c);
+      });
+      wrap.appendChild(label);
+      wrap.appendChild(chips);
+      return wrap;
+    }
+
+    function renderForStep() {
+      const viz = byId('viz');
+      viz.innerHTML = '';
+      const rows = tokens.map((t,i) => `${i}:${t}`);
+      const colsE = Array.from({ length: dModel }, (_, i) => `d${i}`);
+      const colsKQ = Array.from({ length: dK }, (_, i) => `k${i}`);
+      const colsV = Array.from({ length: dV }, (_, i) => `v${i}`);
+
+      // Get current attention computation
+      const attention = computeAttention(state.attentionType, state.windowSize);
+      const { scores, scaled, maskedScaled, weights, output, mask } = attention;
+
+      // Add attention type description
+      const currentType = attentionTypes.find(t => t.id === state.attentionType);
+      const typeDesc = document.createElement('div');
+      typeDesc.className = 'panel';
+      typeDesc.style.background = 'linear-gradient(135deg, rgba(34,211,238,0.1), rgba(167,139,250,0.1))';
+      typeDesc.style.border = '1px solid rgba(34,211,238,0.3)';
+      typeDesc.innerHTML = `<div style="font-weight:700;margin-bottom:6px;color:#22d3ee;">${currentType.name}</div><div style="color:#cbd5e1;">${currentType.desc}</div>`;
+      viz.appendChild(typeDesc);
+
+      const s = stepDefs[state.stepIdx].id;
+      if (s === 'tokens') {
+        viz.appendChild(renderTokens());
+        viz.appendChild(renderMatrix({ title: 'Embeddings E', sub: 'tokens × d_model', data: E, rowLabels: rows, colLabels: colsE, diverging: true }));
+      }
+      if (s === 'projections') {
+        const g = document.createElement('div'); g.className = 'grid';
+        g.appendChild(renderMatrix({ title: 'Weights W_Q', sub: 'd_model × d_k', data: WQ, rowLabels: colsE, colLabels: colsKQ, diverging: true }));
+        g.appendChild(renderMatrix({ title: 'Weights W_K', sub: 'd_model × d_k', data: WK, rowLabels: colsE, colLabels: colsKQ, diverging: true }));
+        g.appendChild(renderMatrix({ title: 'Weights W_V', sub: 'd_model × d_v', data: WV, rowLabels: colsE, colLabels: colsV, diverging: true }));
+        g.appendChild(renderMatrix({ title: 'Queries Q = E·W_Q', sub: 'tokens × d_k', data: Q, rowLabels: rows, colLabels: colsKQ, diverging: true }));
+        g.appendChild(renderMatrix({ title: 'Keys K = E·W_K', sub: 'tokens × d_k', data: K, rowLabels: rows, colLabels: colsKQ, diverging: true }));
+        g.appendChild(renderMatrix({ title: 'Values V = E·W_V', sub: 'tokens × d_v', data: V, rowLabels: rows, colLabels: colsV, diverging: true }));
+        viz.appendChild(g);
+      }
+      if (s === 'scores') {
+        if (state.attentionType === 'multi_head') {
+          const { headScores } = attention;
+          const headsGrid = document.createElement('div'); 
+          headsGrid.className = 'grid';
+          headsGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(300px, 1fr))';
+          
+          for (let h = 0; h < state.numHeads; h++) {
+            const headPanel = document.createElement('div');
+            headPanel.className = 'panel';
+            headPanel.style.background = `linear-gradient(135deg, rgba(${h * 60 + 100}, ${h * 40 + 150}, 255, 0.1), rgba(${h * 80 + 120}, ${h * 30 + 180}, 200, 0.05))`;
+            headPanel.style.border = `1px solid rgba(${h * 60 + 100}, ${h * 40 + 150}, 255, 0.3)`;
+            
+            const headMatrix = renderMatrix({ 
+              title: `Head ${h + 1} Raw Scores`, 
+              sub: `tokens × tokens (${state.headDim}d)`, 
+              data: headScores[h], 
+              rowLabels: rows, 
+              colLabels: rows, 
+              diverging: true, 
+              highlightRow: state.queryIdx 
+            });
+            headMatrix.style.transform = 'scale(0.85)';
+            headMatrix.style.transformOrigin = 'top left';
+            headPanel.appendChild(headMatrix);
+            headsGrid.appendChild(headPanel);
+          }
+          viz.appendChild(headsGrid);
+        } else {
+          viz.appendChild(renderMatrix({ title: 'Raw scores = Q·K^T', sub: 'tokens × tokens', data: scores, rowLabels: rows, colLabels: rows, diverging: true, highlightRow: state.queryIdx }));
+        }
+      }
+      if (s === 'scale') {
+        const hint = document.createElement('div');
+        hint.className = 'hint';
+        if (state.attentionType === 'multi_head') {
+          hint.innerHTML = `Scaling factor 1/√d_head = 1/√${state.headDim} = ${fmt(1/Math.sqrt(state.headDim))} | Attention pattern: ${currentType.name}`;
+        } else {
+          hint.innerHTML = `Scaling factor 1/√d_k = 1/√${dK} = ${fmt(1/Math.sqrt(dK))} | Attention pattern: ${currentType.name}`;
+        }
+        viz.appendChild(hint);
+        
+        if (state.attentionType === 'multi_head') {
+          const { headScores } = attention;
+          const headsGrid = document.createElement('div'); 
+          headsGrid.className = 'grid';
+          headsGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(300px, 1fr))';
+          
+          for (let h = 0; h < state.numHeads; h++) {
+            const headPanel = document.createElement('div');
+            headPanel.className = 'panel';
+            headPanel.style.background = `linear-gradient(135deg, rgba(${h * 60 + 100}, ${h * 40 + 150}, 255, 0.1), rgba(${h * 80 + 120}, ${h * 30 + 180}, 200, 0.05))`;
+            headPanel.style.border = `1px solid rgba(${h * 60 + 100}, ${h * 40 + 150}, 255, 0.3)`;
+            
+            const scaledScores = scale(headScores[h], 1 / Math.sqrt(state.headDim));
+            const headMatrix = renderMatrix({ 
+              title: `Head ${h + 1} Scaled Scores`, 
+              sub: `tokens × tokens (÷√${state.headDim})`, 
+              data: scaledScores, 
+              rowLabels: rows, 
+              colLabels: rows, 
+              diverging: true, 
+              highlightRow: state.queryIdx 
+            });
+            headMatrix.style.transform = 'scale(0.85)';
+            headMatrix.style.transformOrigin = 'top left';
+            headPanel.appendChild(headMatrix);
+            headsGrid.appendChild(headPanel);
+          }
+          viz.appendChild(headsGrid);
+        } else {
+          viz.appendChild(renderMatrix({ title: 'Scaled scores = scores × 1/√d_k', sub: 'tokens × tokens', data: scaled, rowLabels: rows, colLabels: rows, diverging: true, highlightRow: state.queryIdx, mask: mask }));
+        }
+      }
+      if (s === 'softmax') {
+        if (state.attentionType === 'multi_head') {
+          const { headWeights } = attention;
+          const headsGrid = document.createElement('div'); 
+          headsGrid.className = 'grid';
+          headsGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(300px, 1fr))';
+          
+          for (let h = 0; h < state.numHeads; h++) {
+            const headPanel = document.createElement('div');
+            headPanel.className = 'panel';
+            headPanel.style.background = `linear-gradient(135deg, rgba(${h * 60 + 100}, ${h * 40 + 150}, 255, 0.1), rgba(${h * 80 + 120}, ${h * 30 + 180}, 200, 0.05))`;
+            headPanel.style.border = `1px solid rgba(${h * 60 + 100}, ${h * 40 + 150}, 255, 0.3)`;
+            
+            const headMatrix = renderMatrix({ 
+              title: `Head ${h + 1} Attention Weights`, 
+              sub: `tokens × tokens (softmax)`, 
+              data: headWeights[h], 
+              rowLabels: rows, 
+              colLabels: rows, 
+              diverging: false, 
+              highlightRow: state.queryIdx 
+            });
+            headMatrix.style.transform = 'scale(0.85)';
+            headMatrix.style.transformOrigin = 'top left';
+            headPanel.appendChild(headMatrix);
+            headsGrid.appendChild(headPanel);
+          }
+          viz.appendChild(headsGrid);
+          
+          const allSums = headWeights.map((headW, h) => {
+            const sums = headW.map(r => r.reduce((a,b)=>a+b,0));
+            return `Head ${h+1}: ${sums.map(v => fmt(v)).join(', ')}`;
+          });
+          const check = document.createElement('div'); check.className = 'hint';
+          check.innerHTML = `Row sums for each head:<br>${allSums.join('<br>')}`;
+          viz.appendChild(check);
+        } else {
+          viz.appendChild(renderMatrix({ title: 'Attention weights = softmax(masked scaled)', sub: 'tokens × tokens (rows sum to 1)', data: weights, rowLabels: rows, colLabels: rows, diverging: false, highlightRow: state.queryIdx, mask: mask }));
+          const sums = weights.map(r => r.reduce((a,b)=>a+b,0));
+          const check = document.createElement('div'); check.className = 'hint';
+          check.textContent = `Row sums ≈ ${sums.map(v => fmt(v)).join(', ')} | Masked cells shown as ×`;
+          viz.appendChild(check);
+        }
+      }
+      if (s === 'output') {
+        if (state.attentionType === 'multi_head') {
+          // Multi-head attention visualization
+          const { headWeights, headOutputs, combinedOutput, Q_heads, K_heads, V_heads } = attention;
+          
+          // Show individual heads
+          const headsGrid = document.createElement('div'); 
+          headsGrid.className = 'grid';
+          headsGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(250px, 1fr))';
+          
+          for (let h = 0; h < state.numHeads; h++) {
+            const headPanel = document.createElement('div');
+            headPanel.className = 'panel';
+            headPanel.style.background = `linear-gradient(135deg, rgba(${h * 60 + 100}, ${h * 40 + 150}, 255, 0.1), rgba(${h * 80 + 120}, ${h * 30 + 180}, 200, 0.05))`;
+            headPanel.style.border = `1px solid rgba(${h * 60 + 100}, ${h * 40 + 150}, 255, 0.3)`;
+            
+            const headTitle = document.createElement('div');
+            headTitle.innerHTML = `<strong style="color: rgb(${h * 60 + 100}, ${h * 40 + 150}, 255);">Head ${h + 1}</strong> <span style="color: var(--muted); font-size: 12px;">(${state.headDim}×${state.headDim})</span>`;
+            headTitle.style.marginBottom = '12px';
+            headPanel.appendChild(headTitle);
+            
+            const headMatrix = renderMatrix({ 
+              title: `Attention Head ${h + 1}`, 
+              sub: `tokens × tokens`, 
+              data: headWeights[h], 
+              rowLabels: rows, 
+              colLabels: rows, 
+              diverging: false, 
+              highlightRow: state.queryIdx 
+            });
+            headMatrix.style.transform = 'scale(0.8)';
+            headMatrix.style.transformOrigin = 'top left';
+            headPanel.appendChild(headMatrix);
+            
+            headsGrid.appendChild(headPanel);
+          }
+          viz.appendChild(headsGrid);
+          
+          // Combined output
+          const combinedGrid = document.createElement('div'); combinedGrid.className = 'grid';
+          combinedGrid.appendChild(renderMatrix({ title: 'Combined Output', sub: 'tokens × d_model', data: combinedOutput, rowLabels: rows, colLabels: colsE, diverging: true }));
+          viz.appendChild(combinedGrid);
+          
+          // Multi-head summary
+          const qi = state.queryIdx;
+          const summary = document.createElement('div'); summary.className = 'panel';
+          summary.style.background = 'linear-gradient(135deg, rgba(167,139,250,0.1), rgba(34,211,238,0.1))';
+          summary.innerHTML = `<div style="font-weight:700;margin-bottom:6px;">Multi-Head Summary: token ${qi} (${tokens[qi]})</div>
+            <div class="hint">Each head learns different relationships: syntactic, semantic, positional, etc.</div>
+            <div class="hint">Heads are computed in parallel and then concatenated together.</div>
+            <div class="hint">Final output combines insights from all ${state.numHeads} attention heads.</div>`;
+          viz.appendChild(summary);
+        } else {
+          // Single-head attention visualization
+          const g = document.createElement('div'); g.className = 'grid';
+          g.appendChild(renderMatrix({ title: 'Attention weights', sub: 'tokens × tokens', data: weights, rowLabels: rows, colLabels: rows, diverging: false, highlightRow: state.queryIdx, mask: mask }));
+          g.appendChild(renderMatrix({ title: 'Values V', sub: 'tokens × d_v', data: V, rowLabels: rows, colLabels: colsV, diverging: true }));
+          g.appendChild(renderMatrix({ title: 'Output = weights · V', sub: 'tokens × d_v', data: output, rowLabels: rows, colLabels: colsV, diverging: true }));
+          viz.appendChild(g);
+
+          // Focused query quick view
+          const qi = state.queryIdx;
+          const focus = document.createElement('div'); focus.className = 'panel';
+          const att = weights[qi].map((v,i) => `${tokens[i]}:${fmt(v)}`).join('  ');
+          const out = output[qi].map((v,i) => `v${i}:${fmt(v)}`).join('  ');
+          focus.innerHTML = `<div style="font-weight:700;margin-bottom:6px;">Focused Query: token ${qi} (${tokens[qi]}) - ${currentType.name}</div>
+            <div class="hint">Weights → ${att}</div>
+            <div class="hint">Output → ${out}</div>`;
+          viz.appendChild(focus);
+        }
+      }
+    }
+
+    function updateSelectors() {
+      // Attention type selector
+      const attentionSel = byId('attention-type-select');
+      attentionSel.innerHTML = '';
+      attentionTypes.forEach(type => {
+        const opt = document.createElement('option');
+        opt.value = type.id;
+        opt.textContent = type.name;
+        attentionSel.appendChild(opt);
+      });
+      attentionSel.value = state.attentionType;
+      attentionSel.onchange = () => { 
+        state.attentionType = attentionSel.value;
+        // Show/hide heads selector based on attention type
+        const headsSelector = byId('heads-selector');
+        headsSelector.style.display = state.attentionType === 'multi_head' ? 'flex' : 'none';
+        update(); 
+      };
+
+      // Query selector
+      const querySel = byId('query-select');
+      querySel.innerHTML = '';
+      tokens.forEach((t, i) => {
+        const opt = document.createElement('option');
+        opt.value = i; 
+        opt.textContent = `${i}: ${t}`;
+        querySel.appendChild(opt);
+      });
+      querySel.value = String(state.queryIdx);
+      querySel.onchange = () => { 
+        state.queryIdx = Number(querySel.value); 
+        update(); 
+      };
+
+      // Window size selector
+      const windowSel = byId('window-size-select');
+      windowSel.innerHTML = '';
+      [1, 2, 3, 4, 5, 6, 7, 8].forEach(size => {
+        const opt = document.createElement('option');
+        opt.value = size;
+        opt.textContent = size.toString();
+        windowSel.appendChild(opt);
+      });
+      windowSel.value = String(state.windowSize);
+      windowSel.onchange = () => { 
+        state.windowSize = Number(windowSel.value); 
+        update(); 
+      };
+
+      // Number of heads selector
+      const headsSel = byId('num-heads-select');
+      headsSel.innerHTML = '';
+      [1, 2, 4, 8].forEach(numHeads => {
+        if (dK % numHeads === 0) { // Only show valid head counts
+          const opt = document.createElement('option');
+          opt.value = numHeads;
+          opt.textContent = numHeads.toString();
+          headsSel.appendChild(opt);
+        }
+      });
+      headsSel.value = String(state.numHeads);
+      headsSel.onchange = () => { 
+        state.numHeads = Number(headsSel.value); 
+        state.headDim = dK / state.numHeads;
+        update(); 
+      };
+
+      // Initialize heads selector visibility
+      const headsSelector = byId('heads-selector');
+      headsSelector.style.display = state.attentionType === 'multi_head' ? 'flex' : 'none';
+    }
+
+    function update() {
+      renderStepper();
+      renderExplain();
+      renderForStep();
+    }
+
+    // Controls
+    byId('btn-back').onclick = () => {
+      state.stepIdx = Math.max(0, state.stepIdx - 1); update();
+    };
+    byId('btn-next').onclick = () => {
+      state.stepIdx = Math.min(stepDefs.length - 1, state.stepIdx + 1); update();
+    };
+    byId('btn-reset').onclick = () => {
+      state = { stepIdx: 0, queryIdx: 0, playing: false, timer: null, attentionType: 'full', windowSize: 3, numHeads: 4, headDim: 2 }; 
+      byId('btn-play').textContent = '▶ Play'; 
+      updateSelectors(); 
+      update();
+    };
+    byId('btn-play').onclick = () => {
+      state.playing = !state.playing;
+      byId('btn-play').textContent = state.playing ? '⏸ Pause' : '▶ Play';
+      if (state.playing) {
+        state.timer = setInterval(() => {
+          if (state.stepIdx < stepDefs.length - 1) {
+            state.stepIdx++;
+          } else {
+            state.stepIdx = 0;
+          }
+          update();
+        }, 1600);
+      } else {
+        clearInterval(state.timer);
+      }
+    };
+
+    // Keyboard
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight') { byId('btn-next').click(); }
+      if (e.key === 'ArrowLeft') { byId('btn-back').click(); }
+    });
+
+    // Init
+    updateSelectors();
+    update();
+  </script>
+</body>
+<!--
+  How to use:
+  - Open this file in a browser.
+  - Click Next to step through the attention pipeline.
+  - Change the Query token to see the highlighted row (which token is attending).
+  - Press ▶ Play to auto-advance.
+-->
+</html>
+
+
